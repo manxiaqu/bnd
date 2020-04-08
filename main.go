@@ -17,6 +17,7 @@ func main() {
 		log.Warn("load config file failed, using default config instead", "err", err)
 		conf = DConfig()
 	}
+	conf.AssignDefault()
 
 	d := NewDeployer(conf)
 	d.Deploy()

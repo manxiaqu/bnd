@@ -37,9 +37,9 @@ func MakeGenesis(config *GenesisConfig, path string) *core.Genesis {
 
 	// apply consensus spefic.
 	switch config.Consensus {
-	case "ethash":
+	case ethash:
 		applyEthash(genesis)
-	case "clique":
+	case clique:
 		applyClique(genesis, &config.CliqueConfig)
 	default:
 		panic("unsupport consensus")
@@ -51,7 +51,7 @@ func MakeGenesis(config *GenesisConfig, path string) *core.Genesis {
 	prefundPrecompile(genesis)
 
 	// store the genesis and flush to disk
-	FlushGenesis(genesis, path)
+	flushGenesis(genesis, path)
 
 	return genesis
 }

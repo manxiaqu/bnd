@@ -1,7 +1,14 @@
 package main
 
-import "testing"
+import (
+	"testing"
 
-func TestConfig(t *testing.T) {
-	WriteConfig("test.yaml", DConfig())
+	"github.com/stretchr/testify/assert"
+)
+
+func TestConfigAssign(t *testing.T) {
+	c := &Config{}
+	c.AssignDefault()
+
+	assert.Equal(t, c, DConfig())
 }

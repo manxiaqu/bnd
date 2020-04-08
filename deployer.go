@@ -51,15 +51,7 @@ func (dp *Deployer) Deploy() {
 func (dp *Deployer) setDMiners() {
 	for i := 0; i < dp.config.MinerConfig.Amount; i++ {
 		minerName := miner + strconv.Itoa(i)
-		// mkdir for every miner.
-		os.Mkdir(filepath.Join(dp.config.BaseConfig.BaseDir, minerName), 0777)
-		// generate boot key for every miner.
-		key, _ := GenSaveKey(filepath.Join(dp.config.BaseConfig.BaseDir, minerName, bootkey))
-		dp.rawServices[minerName] = convertServiceToRawService(GetDMiner(minerName, i, dp.config.GetEthbase(i).Hex(), dp.miners, dp.bootnodes))
-
-		// add miner info for later useage.
-		dp.bootnodes = append(dp.bootnodes, GetBootNodeString(key, minerName, lisPort))
-		dp.miners = append(dp.miners, minerName)
+		dp.rawServices[minerName] = convertServiceToRawService(dp.SetDMiner(minerName, i))
 	}
 }
 

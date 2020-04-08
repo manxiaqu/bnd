@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/manxiaqu/libcompose/config"
@@ -18,17 +20,26 @@ var (
 	bootkey     = "boot.key"
 	dbase       = "build"
 	composeFile = "compose.yaml"
+	pw          = "123"
+	pwfile      = "pwfile"
+	signerkey   = "key"
 )
 
-// GetDMiner returns default config for docker-compose to start a ethereum miner.
-func GetDMiner(name string, i int, ethbase string, miners, bootnodes []string) *config.ServiceConfig {
+// SetDMiner sets default config for docker-compose to start a ethereum miner.
+func (dp *Deployer) SetDMiner(name string, i int) *config.ServiceConfig {
 	service := &config.ServiceConfig{}
 	service.ContainerName = name
 	service.Image = ETHImage
 
+	// mkdir for every miner.
+	minerDir := filepath.Join(dp.config.BaseConfig.BaseDir, name)
+	os.Mkdir(minerDir, 0777)
+	// generate boot key for every miner.
+	key, _ := GenSaveKey(filepath.Join(minerDir, bootkey))
+
 	volumes := yaml.Volumes{}
 	volumes.Volumes = make([]*yaml.Volume, 0)
-	volumes.Volumes = append(volumes.Volumes, &yaml.Volume{"./" + name, "/root", ""})
+	volumes.Volumes = append(volumes.Volumes, &yaml.Volume{minerDir, "/root", ""})
 	service.Volumes = &volumes
 
 	service.Ports = []string{strconv.Itoa(lisPort+i) + ":30303"}
@@ -38,19 +49,39 @@ func GetDMiner(name string, i int, ethbase string, miners, bootnodes []string) *
 	command = append(command, "geth")
 	command = append(command, "--nodekey")
 	command = append(command, "/root/boot.key")
-	command = append(command, "--miner.etherbase="+ethbase)
+	command = append(command, "--miner.etherbase="+dp.config.GetEthbase(i).String())
 	command = append(command, "--mine")
 	command = append(command, "--miner.threads=2")
-	if i > 0 && len(bootnodes) > 0 {
+	if i > 0 && len(dp.bootnodes) > 0 {
 		command = append(command, "--bootnodes")
-		command = append(command, Contact(bootnodes))
+		command = append(command, Contact(dp.bootnodes))
+	}
+	// unlock the account for mining if signer not empty.
+	if dp.config.GenesisConfig.Consensus == clique {
+		// mkdir keystore.
+		keystorepath := filepath.Join(minerDir, ks)
+		os.MkdirAll(keystorepath, 0777)
+
+		// save signer key to keystore and password file to miner dir.
+		StoreKey(dp.config.GenesisConfig.keys[i], keystorepath, filepath.Join(keystorepath, signerkey))
+		Flush([]byte(pw), filepath.Join(minerDir, pwfile))
+
+		command = append(command, "--unlock="+dp.config.GenesisConfig.Signers[i].Hex())
+		command = append(command, "--password")
+		command = append(command, filepath.Join("/root", pwfile))
+		command = append(command, "--keystore")
+		command = append(command, filepath.Join("/root", ks))
 	}
 
-	if i > 0 && len(miners) > 0 {
-		service.DependsOn = miners
+	if i > 0 && len(dp.miners) > 0 {
+		service.DependsOn = dp.miners
 	}
 
 	service.Entrypoint = command
+
+	// add miner info for later useage.
+	dp.bootnodes = append(dp.bootnodes, GetBootNodeString(key, name, lisPort))
+	dp.miners = append(dp.miners, name)
 
 	return service
 }
